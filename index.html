@@ -1,0 +1,121 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>File Processor</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.6.0/jszip.min.js"></script>
+    <style>
+        #downloadLink, #download2Link {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <h1>File Processor</h1>
+    <input type="file" id="fileInput">
+    <button onclick="processFile()">Process</button>
+    <a id="downloadLink">Download</a>
+
+    <h1>File Decryptor</h1>
+    <input type="file" id="starrInput">
+    <button onclick="decryptFile()">Decrypt</button>
+    <a id="download2Link">Download Decrypted File</a>
+
+    <script>
+        function vigenereEncrypt(data, key) {
+            const n = 256; // Number of ASCII characters
+            const result = new Uint8Array(data.length);
+            for (let i = 0; i < data.length; i++) {
+                result[i] = (data[i] + key.charCodeAt(i % key.length)) % n;
+            }
+            return result;
+        }
+
+        function vigenereDecrypt(data, key) {
+            const n = 256; // Number of ASCII characters
+            const result = new Uint8Array(data.length);
+            for (let i = 0; i < data.length; i++) {
+                result[i] = (data[i] - key.charCodeAt(i % key.length) + n) % n;
+            }
+            return result;
+        }
+
+        async function processFile() {
+            const fileInput = document.getElementById('fileInput');
+            const file = fileInput.files[0];
+            if (!file) {
+                alert('Please select a file.');
+                return;
+            }
+
+            const key = 'astarrcrypt'; // Encryption key
+            const originalFileName = file.name;
+            const fileNameWithoutExtension = originalFileName.split('.').slice(0, -1).join('.'); // Get filename without extension
+
+            const arrayBuffer = await file.arrayBuffer();
+            const fileContent = new Uint8Array(arrayBuffer);
+
+            // Prepare data to encrypt (prepend file extension)
+            const fileExtension = originalFileName.split('.').pop(); // Extract file extension
+            const extensionBuffer = new TextEncoder().encode('.' + fileExtension + '\n');
+            const combinedContent = new Uint8Array(extensionBuffer.length + fileContent.length);
+            combinedContent.set(extensionBuffer, 0);
+            combinedContent.set(fileContent, extensionBuffer.length);
+
+            // Encrypt content
+            const encryptedContent = vigenereEncrypt(combinedContent, key);
+
+            // Create downloadable blob
+            const blob = new Blob([encryptedContent], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+
+            const downloadLink = document.getElementById('downloadLink');
+            downloadLink.href = url;
+            downloadLink.download = fileNameWithoutExtension + '.starr'; // Use original file name without extension with .starr extension
+            downloadLink.style.display = 'block';
+        }
+
+        async function decryptFile() {
+            const starrInput = document.getElementById('starrInput');
+            const file = starrInput.files[0];
+            if (!file) {
+                alert('Please select a .starr file.');
+                return;
+            }
+
+            const key = 'astarrcrypt'; // Decryption key
+            const arrayBuffer = await file.arrayBuffer();
+            const encryptedContent = new Uint8Array(arrayBuffer);
+            const decryptedContent = vigenereDecrypt(encryptedContent, key);
+
+            // Decode the decrypted content
+            const textDecoder = new TextDecoder();
+            const decodedContent = textDecoder.decode(decryptedContent);
+
+            // Find the position of the first newline (end of the extension part)
+            const newlinePos = decodedContent.indexOf('\n');
+            if (newlinePos === -1) {
+                alert('Invalid file format.');
+                return;
+            }
+
+            // Extract the file extension
+            const fileExtension = decodedContent.slice(1, newlinePos);
+
+            // Extract the file data
+            const fileData = decryptedContent.slice(newlinePos + 1);
+
+            // Create a blob with the extracted file data
+            const blob = new Blob([fileData], { type: 'application/octet-stream' });
+            const url = URL.createObjectURL(blob);
+
+            // Create a downloadable link
+            const download2Link = document.getElementById('download2Link');
+            download2Link.href = url;
+            download2Link.download = `decrypted_file.${fileExtension}`; // Use extracted extension
+            download2Link.style.display = 'block';
+        }
+    </script>
+</body>
+</html>
